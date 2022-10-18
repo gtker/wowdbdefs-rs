@@ -11,7 +11,7 @@ pub struct ParseError {
 }
 
 impl ParseError {
-    pub const fn new(column: usize, line: usize, reason: DbdErrorReason) -> Self {
+    pub(crate) const fn new(column: usize, line: usize, reason: DbdErrorReason) -> Self {
         Self {
             column,
             line,
