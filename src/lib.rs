@@ -2,6 +2,19 @@
 //!
 //! Crate for reading the `.dbd` format from the [`WoWDBDefs`](https://github.com/wowdev/WoWDBDefs) repository.
 //!
+//! # Usage
+//!
+//! Add the following to your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! wowdbdefs-rs = "0.1.0"
+//! ```
+//!
+//! # MSRV
+//!
+//! The MSRV for this crate is `1.58.1`.
+//!
 #![forbid(unsafe_code)]
 #![warn(
     clippy::perf,
