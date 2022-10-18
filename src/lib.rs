@@ -80,35 +80,9 @@ pub fn load_file_from_string(
     parse_file(contents, name.into())
 }
 
-/// Prints `contents` from the `(line, column)` to the end of the string.
-///
-/// Use this in conjunction with the [`ParseError`] to pretty print the offending section.
-pub fn line_and_column_to_str(mut contents: &str, line: usize, column: usize) -> Option<&str> {
-    let mut i = 0_usize;
-
-    if line == 0 {
-        return Some(&contents[column..]);
-    }
-
-    while let Some((_, b)) = contents.split_once('\n') {
-        i += 1;
-
-        if line == i {
-            return Some(&b[column..]);
-        }
-
-        contents = b;
-    }
-
-    None
-}
-
 #[cfg(test)]
 mod tests {
-    use crate::{
-        line_and_column_to_str, load_file, load_file_from_string, write_to_file, RawDbdFile,
-        Version,
-    };
+    use crate::{load_file, load_file_from_string, write_to_file, RawDbdFile, Version};
     const MAP_CONTENTS: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/WoWDBDefs/definitions/Map.dbd"
@@ -154,7 +128,7 @@ MapName_lang
         match contents {
             Ok(_) => panic!(),
             Err(e) => {
-                dbg!(line_and_column_to_str(CONTENTS, e.line, e.column).unwrap());
+                dbg!(e.start_str_at(CONTENTS).unwrap());
             }
         }
     }

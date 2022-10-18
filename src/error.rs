@@ -18,6 +18,27 @@ impl ParseError {
             reason,
         }
     }
+
+    /// Prints `contents` from the `(line, column)` to the end of the string.
+    pub fn start_str_at<'a>(&self, mut contents: &'a str) -> Option<&'a str> {
+        let mut i = 0_usize;
+
+        if self.line == 0 {
+            return Some(&contents[self.column..]);
+        }
+
+        while let Some((_, b)) = contents.split_once('\n') {
+            i += 1;
+
+            if self.line == i {
+                return Some(&b[self.column..]);
+            }
+
+            contents = b;
+        }
+
+        None
+    }
 }
 
 impl Display for ParseError {
