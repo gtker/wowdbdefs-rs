@@ -2,6 +2,32 @@
 //!
 //! Crate for reading the `.dbd` format from the [`WoWDBDefs`](https://github.com/wowdev/WoWDBDefs) repository.
 //!
+//! # Example
+//!
+//! ```rust
+//! # use std::path::Path;
+//! # use wowdbdefs_rs::error::ParseError;
+//! # use wowdbdefs_rs::{load_file, load_file_from_string};
+//! # fn t(contents: &str, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
+//! // From &str
+//! // Ensure that the .dbd name is correct
+//! let file = load_file_from_string(contents, "Map.dbd")?;
+//!
+//! // Or from a path
+//! // `load_file` has two levels of error, one is io::Error the other is ParseError
+//! let file = load_file(path)??;
+//!
+//! // Then either use the raw types
+//! for definition in &file.definitions {
+//!     for entry in &definition.entries {
+//!         println!("{}", entry.name)
+//!     }   
+//! }
+//!
+//! # Ok(())
+//! # }
+//! ```
+//!
 //! # Usage
 //!
 //! Add the following to your `Cargo.toml`:
