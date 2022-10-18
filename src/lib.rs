@@ -13,7 +13,7 @@
 )]
 #![allow(missing_docs, clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
-use crate::error::DbdError;
+use crate::error::ParseError;
 use crate::parser::parse_file;
 use std::fs::read_to_string;
 use std::path::Path;
@@ -38,9 +38,9 @@ pub const PLACEHOLDER_NAME: &str = "PLACEHOLDER";
 /// The function has two error types:
 ///
 /// * [`std::io::Error`], for errors in reading the file.
-/// * [`DbdError`], for errors in parsing the `.dbd` file.
+/// * [`ParseError`], for errors in parsing the `.dbd` file.
 ///
-pub fn load_file(path: &Path) -> std::io::Result<Result<DbdFile, DbdError>> {
+pub fn load_file(path: &Path) -> std::io::Result<Result<RawDbdFile, ParseError>> {
     let contents = read_to_string(path)?;
 
     let filename = if let Some(filename) = path.file_name() {
@@ -59,14 +59,17 @@ pub fn load_file(path: &Path) -> std::io::Result<Result<DbdFile, DbdError>> {
 ///
 /// # Errors
 ///
-/// Returns a [`DbdError`] in case parsing fails.
-pub fn load_file_from_string(contents: &str, name: impl Into<String>) -> Result<DbdFile, DbdError> {
+/// Returns a [`ParseError`] in case parsing fails.
+pub fn load_file_from_string(
+    contents: &str,
+    name: impl Into<String>,
+) -> Result<RawDbdFile, ParseError> {
     parse_file(contents, name.into())
 }
 
 /// Prints `contents` from the `(line, column)` to the end of the string.
 ///
-/// Use this in conjunction with the [`DbdError`] to pretty print the offending section.
+/// Use this in conjunction with the [`ParseError`] to pretty print the offending section.
 pub fn line_and_column_to_str(mut contents: &str, line: usize, column: usize) -> Option<&str> {
     let mut i = 0_usize;
 
@@ -90,7 +93,8 @@ pub fn line_and_column_to_str(mut contents: &str, line: usize, column: usize) ->
 #[cfg(test)]
 mod tests {
     use crate::{
-        line_and_column_to_str, load_file, load_file_from_string, write_to_file, DbdFile, Version,
+        line_and_column_to_str, load_file, load_file_from_string, write_to_file, RawDbdFile,
+        Version,
     };
     const MAP_CONTENTS: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -147,7 +151,7 @@ MapName_lang
         load_file_from_string(MAP_CONTENTS, "Contents.dbd").unwrap();
     }
 
-    fn get_all_files() -> Vec<DbdFile> {
+    fn get_all_files() -> Vec<RawDbdFile> {
         let mut v = Vec::with_capacity(1024);
 
         let paths = std::fs::read_dir("./WoWDBDefs/definitions/").unwrap();
@@ -177,10 +181,10 @@ MapName_lang
                         assert!(v == 8 || v == 16 || v == 32 || v == 64);
                     }
                 }
-                f.to_specific(&file.columns).unwrap();
+                f.to_definition(&file.columns).unwrap();
             }
 
-            file.into_specific().unwrap();
+            file.into_proper().unwrap();
         }
     }
 }

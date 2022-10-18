@@ -1,10 +1,10 @@
 use crate::writer::Writer;
-use crate::DbdFile;
+use crate::RawDbdFile;
 
-/// Write the [`DbdFile`] to a string in the `.dbd` format.
+/// Write the [`RawDbdFile`] to a string in the `.dbd` format.
 ///
 /// Versions will be written deduplicated.
-pub fn write_to_file(file: &DbdFile) -> String {
+pub fn write_to_file(file: &RawDbdFile) -> String {
     let mut s = Writer::new();
     s.wln("COLUMNS");
 

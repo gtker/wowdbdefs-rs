@@ -4,13 +4,13 @@ use std::fmt::{Display, Formatter};
 
 /// Main error for parsing the files.
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct DbdError {
+pub struct ParseError {
     pub column: usize,
     pub line: usize,
     pub reason: DbdErrorReason,
 }
 
-impl DbdError {
+impl ParseError {
     pub const fn new(column: usize, line: usize, reason: DbdErrorReason) -> Self {
         Self {
             column,
@@ -20,7 +20,7 @@ impl DbdError {
     }
 }
 
-impl Display for DbdError {
+impl Display for ParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!(
             "Column {}, line {}: {}",
@@ -29,7 +29,7 @@ impl Display for DbdError {
     }
 }
 
-impl std::error::Error for DbdError {}
+impl std::error::Error for ParseError {}
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum DbdErrorReason {
@@ -92,7 +92,7 @@ impl Display for DbdErrorReason {
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub enum SpecificConversionError {
+pub enum ConversionError {
     InvalidIntegerWidth(usize),
     NoIntegerWidth,
 
@@ -103,25 +103,25 @@ pub enum SpecificConversionError {
     FloatAsForeignKey,
 }
 
-impl Display for SpecificConversionError {
+impl Display for ConversionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            SpecificConversionError::InvalidIntegerWidth(i) => {
+            ConversionError::InvalidIntegerWidth(i) => {
                 write!(f, "invalid integer size '{}'", i)
             }
-            SpecificConversionError::NoIntegerWidth => write!(f, "no integer width for integer"),
-            SpecificConversionError::ColumnNotFound(s) => write!(f, "column not found '{}'", s),
-            SpecificConversionError::LocStringAsForeignKey => {
+            ConversionError::NoIntegerWidth => write!(f, "no integer width for integer"),
+            ConversionError::ColumnNotFound(s) => write!(f, "column not found '{}'", s),
+            ConversionError::LocStringAsForeignKey => {
                 write!(f, "LocString type is set as foreign key")
             }
-            SpecificConversionError::StringAsForeignKey => {
+            ConversionError::StringAsForeignKey => {
                 write!(f, "String type is set as foreign key")
             }
-            SpecificConversionError::FloatAsForeignKey => {
+            ConversionError::FloatAsForeignKey => {
                 write!(f, "Float type is set as foreign key")
             }
         }
     }
 }
 
-impl std::error::Error for SpecificConversionError {}
+impl std::error::Error for ConversionError {}

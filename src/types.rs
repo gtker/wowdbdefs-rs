@@ -1,13 +1,13 @@
-use crate::error::SpecificConversionError;
+use crate::error::ConversionError;
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap};
 use std::fmt::{Debug, Display, Formatter};
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct DbdFile {
+pub struct RawDbdFile {
     pub name: String,
-    pub columns: HashMap<String, Column>,
-    pub definitions: Vec<Definition>,
+    pub columns: HashMap<String, RawColumn>,
+    pub definitions: Vec<RawDefinition>,
 }
 
 fn compare_versions(
@@ -30,27 +30,27 @@ fn compare_versions(
     false
 }
 
-impl DbdFile {
-    pub fn specific_version(&self, version: &Version) -> Option<&Definition> {
+impl RawDbdFile {
+    pub fn specific_version(&self, version: &Version) -> Option<&RawDefinition> {
         self.definitions
             .iter()
             .find(|a| compare_versions(version, &a.version_ranges, &a.versions))
     }
 
-    pub fn into_specific(self) -> Result<SpecificDbdFile, SpecificConversionError> {
+    pub fn into_proper(self) -> Result<DbdFile, ConversionError> {
         let mut definitions = Vec::with_capacity(self.definitions.len());
 
         for def in self.definitions {
-            definitions.push(def.to_specific(&self.columns)?)
+            definitions.push(def.to_definition(&self.columns)?)
         }
 
-        Ok(SpecificDbdFile {
+        Ok(DbdFile {
             name: self.name,
             definitions,
         })
     }
 
-    pub fn find_column(&self, entry: &Entry) -> Option<&Column> {
+    pub fn find_column(&self, entry: &RawEntry) -> Option<&RawColumn> {
         self.columns.get(&entry.name)
     }
 
@@ -61,30 +61,30 @@ impl DbdFile {
             definitions: vec![],
         }
     }
-    pub(crate) fn add_column(&mut self, column: Column) {
+    pub(crate) fn add_column(&mut self, column: RawColumn) {
         self.columns.insert(column.name.clone(), column);
     }
 
-    pub(crate) fn add_database(&mut self, definition: Definition) {
+    pub(crate) fn add_database(&mut self, definition: RawDefinition) {
         self.definitions.push(definition);
     }
 }
 
 #[derive(Debug, Clone, Copy, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub enum Type {
+pub enum RawType {
     Int,
     Float,
     LocString,
     String,
 }
 
-impl Display for Type {
+impl Display for RawType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
-            Type::Int => "int",
-            Type::Float => "float",
-            Type::LocString => "locstring",
-            Type::String => "string",
+            RawType::Int => "int",
+            RawType::Float => "float",
+            RawType::LocString => "locstring",
+            RawType::String => "string",
         })
     }
 }
@@ -108,9 +108,9 @@ impl ForeignKey {
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct Column {
+pub struct RawColumn {
     pub name: String,
-    pub ty: Type,
+    pub ty: RawType,
 
     pub foreign_key: Option<ForeignKey>,
     pub verified: bool,
@@ -118,10 +118,10 @@ pub struct Column {
     pub comment: Option<String>,
 }
 
-impl Column {
+impl RawColumn {
     pub const fn new(
         name: String,
-        ty: Type,
+        ty: RawType,
         foreign_key: Option<ForeignKey>,
         verified: bool,
         comment: Option<String>,
@@ -222,7 +222,7 @@ impl Layout {
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct Entry {
+pub struct RawEntry {
     pub name: String,
     pub comment: Option<String>,
     pub integer_width: Option<u8>,
@@ -233,7 +233,7 @@ pub struct Entry {
     pub relation: bool,
 }
 
-impl Entry {
+impl RawEntry {
     #[allow(clippy::too_many_arguments)]
     pub const fn new(
         name: String,
@@ -263,19 +263,19 @@ impl Entry {
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Default)]
-pub struct Definition {
+pub struct RawDefinition {
     pub versions: BTreeSet<Version>,
     pub version_ranges: Vec<VersionRange>,
     pub layouts: BTreeSet<Layout>,
-    pub entries: Vec<Entry>,
+    pub entries: Vec<RawEntry>,
 }
 
-impl Definition {
+impl RawDefinition {
     pub fn new(
         versions: BTreeSet<Version>,
         version_ranges: Vec<VersionRange>,
         layouts: BTreeSet<Layout>,
-        entries: Vec<Entry>,
+        entries: Vec<RawEntry>,
     ) -> Self {
         Self {
             versions,
@@ -285,85 +285,77 @@ impl Definition {
         }
     }
 
-    pub fn to_specific(
+    pub fn to_definition(
         &self,
-        columns: &HashMap<String, Column>,
-    ) -> Result<SpecificDefinition, SpecificConversionError> {
+        columns: &HashMap<String, RawColumn>,
+    ) -> Result<Definition, ConversionError> {
         let mut entries = Vec::with_capacity(self.entries.len());
 
         for entry in &self.entries {
             let column = if let Some(c) = columns.get(&entry.name) {
                 c
             } else {
-                return Err(SpecificConversionError::ColumnNotFound(entry.name.clone()));
+                return Err(ConversionError::ColumnNotFound(entry.name.clone()));
             };
 
             let mut ty = match column.ty {
-                Type::Int => match entry.integer_width {
-                    None => return Err(SpecificConversionError::NoIntegerWidth),
+                RawType::Int => match entry.integer_width {
+                    None => return Err(ConversionError::NoIntegerWidth),
                     Some(v) => match entry.unsigned {
                         true => match v {
-                            8 => SpecificType::UInt8,
-                            16 => SpecificType::UInt16,
-                            32 => SpecificType::UInt32,
-                            64 => SpecificType::UInt64,
-                            v => {
-                                return Err(SpecificConversionError::InvalidIntegerWidth(v.into()))
-                            }
+                            8 => Type::UInt8,
+                            16 => Type::UInt16,
+                            32 => Type::UInt32,
+                            64 => Type::UInt64,
+                            v => return Err(ConversionError::InvalidIntegerWidth(v.into())),
                         },
                         false => match v {
-                            8 => SpecificType::Int8,
-                            16 => SpecificType::Int16,
-                            32 => SpecificType::Int32,
-                            64 => SpecificType::Int64,
-                            v => {
-                                return Err(SpecificConversionError::InvalidIntegerWidth(v.into()))
-                            }
+                            8 => Type::Int8,
+                            16 => Type::Int16,
+                            32 => Type::Int32,
+                            64 => Type::Int64,
+                            v => return Err(ConversionError::InvalidIntegerWidth(v.into())),
                         },
                     },
                 },
-                Type::Float => SpecificType::Float,
-                Type::LocString => SpecificType::LocString,
-                Type::String => SpecificType::String,
+                RawType::Float => Type::Float,
+                RawType::LocString => Type::LocString,
+                RawType::String => Type::String,
             };
 
             if let Some(foreign_key) = &column.foreign_key {
                 match ty {
-                    SpecificType::Array { .. }
-                    | SpecificType::Int8
-                    | SpecificType::Int16
-                    | SpecificType::Int32
-                    | SpecificType::Int64
-                    | SpecificType::UInt8
-                    | SpecificType::UInt16
-                    | SpecificType::UInt32
-                    | SpecificType::UInt64 => {
-                        ty = SpecificType::ForeignKey {
+                    Type::Array { .. }
+                    | Type::Int8
+                    | Type::Int16
+                    | Type::Int32
+                    | Type::Int64
+                    | Type::UInt8
+                    | Type::UInt16
+                    | Type::UInt32
+                    | Type::UInt64 => {
+                        ty = Type::ForeignKey {
                             ty: Box::new(ty),
                             key: foreign_key.clone(),
                         };
                     }
-                    SpecificType::Float => return Err(SpecificConversionError::FloatAsForeignKey),
-                    SpecificType::LocString => {
-                        return Err(SpecificConversionError::LocStringAsForeignKey)
-                    }
-                    SpecificType::String => {
-                        return Err(SpecificConversionError::StringAsForeignKey)
-                    }
-                    SpecificType::ForeignKey { .. } => {
+                    Type::Float => return Err(ConversionError::FloatAsForeignKey),
+                    Type::LocString => return Err(ConversionError::LocStringAsForeignKey),
+                    Type::String => return Err(ConversionError::StringAsForeignKey),
+                    Type::ForeignKey { .. } => {
                         unreachable!("ty has not been set to foreign key yet")
                     }
                 }
             }
 
             if let Some(width) = entry.array_size {
-                ty = SpecificType::Array {
+                ty = Type::Array {
                     ty: Box::new(ty.clone()),
                     width,
                 };
             }
 
-            entries.push(SpecificEntry {
+            entries.push(Entry {
                 name: entry.name.clone(),
                 ty,
                 comment: entry.comment.clone(),
@@ -375,7 +367,7 @@ impl Definition {
             });
         }
 
-        Ok(SpecificDefinition {
+        Ok(Definition {
             versions: self.versions.clone(),
             version_ranges: self.version_ranges.clone(),
             layouts: self.layouts.clone(),
@@ -385,18 +377,18 @@ impl Definition {
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Default)]
-pub struct SpecificDefinition {
+pub struct Definition {
     pub versions: BTreeSet<Version>,
     pub version_ranges: Vec<VersionRange>,
     pub layouts: BTreeSet<Layout>,
-    pub entries: Vec<SpecificEntry>,
+    pub entries: Vec<Entry>,
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub struct SpecificEntry {
+pub struct Entry {
     pub name: String,
 
-    pub ty: SpecificType,
+    pub ty: Type,
 
     pub comment: Option<String>,
     pub column_comment: Option<String>,
@@ -408,7 +400,7 @@ pub struct SpecificEntry {
 }
 
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-pub enum SpecificType {
+pub enum Type {
     Int8,
     Int16,
     Int32,
@@ -423,25 +415,19 @@ pub enum SpecificType {
     LocString,
     String,
 
-    ForeignKey {
-        ty: Box<SpecificType>,
-        key: ForeignKey,
-    },
+    ForeignKey { ty: Box<Type>, key: ForeignKey },
 
-    Array {
-        ty: Box<SpecificType>,
-        width: usize,
-    },
+    Array { ty: Box<Type>, width: usize },
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct SpecificDbdFile {
+pub struct DbdFile {
     pub name: String,
-    pub definitions: Vec<SpecificDefinition>,
+    pub definitions: Vec<Definition>,
 }
 
-impl SpecificDbdFile {
-    pub fn specific_version(&self, version: &Version) -> Option<&SpecificDefinition> {
+impl DbdFile {
+    pub fn specific_version(&self, version: &Version) -> Option<&Definition> {
         self.definitions
             .iter()
             .find(|a| compare_versions(version, &a.version_ranges, &a.versions))

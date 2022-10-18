@@ -1,6 +1,7 @@
 use crate::error::DbdErrorReason;
 use crate::{
-    Column, DbdError, DbdFile, Definition, Entry, ForeignKey, Layout, Type, Version, VersionRange,
+    ForeignKey, Layout, ParseError, RawColumn, RawDbdFile, RawDefinition, RawEntry, RawType,
+    Version, VersionRange,
 };
 use std::collections::BTreeSet;
 
@@ -10,8 +11,8 @@ enum Mode {
     Entry,
 }
 
-pub(crate) fn parse_file(contents: &str, name: String) -> Result<DbdFile, DbdError> {
-    let mut file = DbdFile::empty(name);
+pub(crate) fn parse_file(contents: &str, name: String) -> Result<RawDbdFile, ParseError> {
+    let mut file = RawDbdFile::empty(name);
     let mut mode = Mode::Column;
 
     let mut layouts = BTreeSet::new();
@@ -43,7 +44,7 @@ pub(crate) fn parse_file(contents: &str, name: String) -> Result<DbdFile, DbdErr
             Mode::Column => {
                 let (ty_name, split) = match line.split_once(' ') {
                     None => {
-                        return Err(DbdError::new(
+                        return Err(ParseError::new(
                             0,
                             line_count,
                             DbdErrorReason::NoSpaceInColumn,
@@ -62,7 +63,7 @@ pub(crate) fn parse_file(contents: &str, name: String) -> Result<DbdFile, DbdErr
                             if let Some((database, column)) = foreign_key.split_once("::") {
                                 ForeignKey::new(database.to_string(), column.to_string())
                             } else {
-                                return Err(DbdError::new(
+                                return Err(ParseError::new(
                                     i,
                                     line_count,
                                     DbdErrorReason::NoDoubleColonInForeignKey,
@@ -71,7 +72,7 @@ pub(crate) fn parse_file(contents: &str, name: String) -> Result<DbdFile, DbdErr
 
                         (ty, Some(foreign_key))
                     } else {
-                        return Err(DbdError::new(
+                        return Err(ParseError::new(
                             i,
                             line_count,
                             DbdErrorReason::NoClosingForeignKeyAngleBracket,
@@ -87,7 +88,7 @@ pub(crate) fn parse_file(contents: &str, name: String) -> Result<DbdFile, DbdErr
                     (name.to_string(), true)
                 };
 
-                let column = Column::new(name, ty, foreign_key, verified, comment);
+                let column = RawColumn::new(name, ty, foreign_key, verified, comment);
                 file.add_column(column);
             }
             Mode::Entry | Mode::Build => {
@@ -101,10 +102,10 @@ pub(crate) fn parse_file(contents: &str, name: String) -> Result<DbdFile, DbdErr
 
 fn parse_entry(
     mode: &mut Mode,
-    entries: &mut Vec<Entry>,
+    entries: &mut Vec<RawEntry>,
     line: &str,
     line_count: usize,
-) -> Result<(), DbdError> {
+) -> Result<(), ParseError> {
     *mode = Mode::Entry;
 
     let (name, comment) = split_comment(line);
@@ -114,7 +115,7 @@ fn parse_entry(
 
         let j = match name[OFFSET..].find('$') {
             None => {
-                return Err(DbdError::new(
+                return Err(ParseError::new(
                     OFFSET,
                     line_count,
                     DbdErrorReason::NoClosingAnnotationDollarSign,
@@ -152,7 +153,7 @@ fn parse_entry(
         let identifier = &name[..i];
         let j = match name[i..].find('>') {
             None => {
-                return Err(DbdError::new(
+                return Err(ParseError::new(
                     i,
                     line_count,
                     DbdErrorReason::NoClosingIntegerSizeAngleBracket,
@@ -167,7 +168,7 @@ fn parse_entry(
             if let Ok(integer_width) = integer_width.parse::<u8>() {
                 (true, integer_width)
             } else {
-                return Err(DbdError::new(
+                return Err(ParseError::new(
                     i,
                     line_count,
                     DbdErrorReason::InvalidIntegerSizeNumber(integer_width.to_string()),
@@ -176,7 +177,7 @@ fn parse_entry(
         } else if let Ok(integer_width) = integer_width.parse::<u8>() {
             (false, integer_width)
         } else {
-            return Err(DbdError::new(
+            return Err(ParseError::new(
                 i,
                 line_count,
                 DbdErrorReason::InvalidIntegerSizeNumber(integer_width.to_string()),
@@ -187,7 +188,7 @@ fn parse_entry(
         let array_size = if let Some(i) = name.find('[') {
             let j = match name.find(']') {
                 None => {
-                    return Err(DbdError::new(
+                    return Err(ParseError::new(
                         i,
                         line_count,
                         DbdErrorReason::NoClosingArraySizeSquareBracket,
@@ -199,7 +200,7 @@ fn parse_entry(
             match name[i + 1..j].parse::<usize>() {
                 Ok(array_size) => Some(array_size),
                 Err(_) => {
-                    return Err(DbdError::new(
+                    return Err(ParseError::new(
                         i,
                         line_count,
                         DbdErrorReason::InvalidArraySizeNumber(name[i + 1..j].to_string()),
@@ -215,7 +216,7 @@ fn parse_entry(
         let (array_size, name) = if let Some(i) = name.find('[') {
             let j = match name.find(']') {
                 None => {
-                    return Err(DbdError::new(
+                    return Err(ParseError::new(
                         i,
                         line_count,
                         DbdErrorReason::NoClosingArraySizeSquareBracket,
@@ -227,7 +228,7 @@ fn parse_entry(
             let array_size = match name[i + 1..j].parse::<usize>() {
                 Ok(array_size) => array_size,
                 Err(_) => {
-                    return Err(DbdError::new(
+                    return Err(ParseError::new(
                         i,
                         line_count,
                         DbdErrorReason::InvalidArraySizeNumber(name[i + 1..j].to_string()),
@@ -243,7 +244,7 @@ fn parse_entry(
         (None, array_size, false, name)
     };
 
-    entries.push(Entry::new(
+    entries.push(RawEntry::new(
         name.to_string(),
         comment,
         integer_width,
@@ -290,15 +291,15 @@ fn version_normalization() {
 
 #[allow(clippy::too_many_arguments)]
 fn parse_builds(
-    file: &mut DbdFile,
+    file: &mut RawDbdFile,
     mode: &mut Mode,
     layouts: &mut BTreeSet<Layout>,
     versions: &mut BTreeSet<Version>,
     version_ranges: &mut Vec<VersionRange>,
-    entries: &mut Vec<Entry>,
+    entries: &mut Vec<RawEntry>,
     line: &str,
     line_count: usize,
-) -> Result<bool, DbdError> {
+) -> Result<bool, ParseError> {
     if line.starts_with("COLUMNS") {
         *mode = Mode::Column;
         return Ok(true);
@@ -312,7 +313,7 @@ fn parse_builds(
             Mode::Entry => {
                 normalize_versions(versions, version_ranges);
 
-                let database = Definition::new(
+                let database = RawDefinition::new(
                     versions.clone(),
                     version_ranges.clone(),
                     layouts.clone(),
@@ -356,7 +357,7 @@ fn parse_builds(
                     let value = match u32::from_str_radix(&b[..i], 16) {
                         Ok(i) => i,
                         Err(_) => {
-                            return Err(DbdError::new(
+                            return Err(ParseError::new(
                                 i,
                                 line_count,
                                 DbdErrorReason::InvalidLayout(b[..i].to_string()),
@@ -373,7 +374,7 @@ fn parse_builds(
                 let value = match u32::from_str_radix(b, 16) {
                     Ok(i) => i,
                     Err(_) => {
-                        return Err(DbdError::new(
+                        return Err(ParseError::new(
                             LAYOUT_SPACE_OFFSET,
                             line_count,
                             DbdErrorReason::InvalidLayout(b.to_string()),
@@ -393,9 +394,9 @@ fn parse_builds(
     Ok(false)
 }
 
-fn string_to_version(s: &str, line_count: usize, column: usize) -> Result<Version, DbdError> {
-    let err = || -> Result<Version, DbdError> {
-        Err(DbdError::new(
+fn string_to_version(s: &str, line_count: usize, column: usize) -> Result<Version, ParseError> {
+    let err = || -> Result<Version, ParseError> {
+        Err(ParseError::new(
             column,
             line_count,
             DbdErrorReason::InvalidBuild(s.to_string()),
@@ -455,14 +456,14 @@ fn split_comment(line: &str) -> (&str, Option<String>) {
     }
 }
 
-fn ty_to_type(ty: &str, line_count: usize, column: usize) -> Result<Type, DbdError> {
+fn ty_to_type(ty: &str, line_count: usize, column: usize) -> Result<RawType, ParseError> {
     Ok(match ty {
-        "int" => Type::Int,
-        "float" => Type::Float,
-        "locstring" => Type::LocString,
-        "string" => Type::String,
+        "int" => RawType::Int,
+        "float" => RawType::Float,
+        "locstring" => RawType::LocString,
+        "string" => RawType::String,
         v => {
-            return Err(DbdError::new(
+            return Err(ParseError::new(
                 column,
                 line_count,
                 DbdErrorReason::InvalidType(v.to_string()),
