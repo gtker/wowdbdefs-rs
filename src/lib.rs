@@ -11,17 +11,29 @@
 //! # fn t(contents: &str, path: &Path) -> Result<(), Box<dyn std::error::Error>> {
 //! // From &str
 //! // Ensure that the .dbd name is correct
-//! let file = load_file_from_string(contents, "Map.dbd")?;
+//! let file = load_file_from_string(contents, "Map.dbd")?.into_proper()?;
 //!
 //! // Or from a path
 //! // `load_file` has two levels of error, one is io::Error the other is ParseError
-//! let file = load_file(path)??;
+//! let file = load_file(path)??.into_proper()?;
 //!
-//! // Then either use the raw types
+//! // Then either use the parsed types with into_proper which is a more ergonomic API
 //! for definition in &file.definitions {
 //!     for entry in &definition.entries {
-//!         println!("{}", entry.name)
-//!     }   
+//!         println!("{}", entry.name);
+//!         println!("{:#?}", entry.ty);
+//!     }
+//! }
+//!
+//! // Or the raw types which are a direct representation of the format
+//! let file = load_file(path)??;
+//!
+//! for definition in &file.definitions {
+//!     for entry in &definition.entries {
+//!         println!("{}", entry.name);
+//!         let column = file.columns.get(&entry.name).ok_or("unable to find column")?;
+//!         println!("{:#?}", column.ty);
+//!     }
 //! }
 //!
 //! # Ok(())
