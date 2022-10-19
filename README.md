@@ -2,6 +2,17 @@
 
 Rust library for parsing [WoWDBDefs/`.dbd` files](https://github.com/wowdev/WoWDBDefs).
 
+# Usage
+
+Add the following to your `Cargo.toml`:
+
+```toml
+[description]
+wowdbdefs-rs = "0.1"
+```
+
+and then [read the docs](https://docs.rs/wowdbdefs-rs/latest/wowdbdefs-rs/index.html).
+
 # MSRV
 
 `wow_srp` has a Minimum Supported Rust Version (MSRV) of 1.58.1.
