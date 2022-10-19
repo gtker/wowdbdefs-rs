@@ -10,3 +10,4 @@ categories = ["game-development", "game-engines", "parsing", "encoding"]
 readme = "README.md"
 authors = ["Gtker <git@gtker.com"]
 rust-version = "1.58.1"
+exclude = ["WoWDBDefs", ".github", ".gitignore", ".gitmodules"]
