@@ -5,8 +5,11 @@ use std::fmt::{Display, Formatter};
 /// Main error for parsing the files.
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct ParseError {
+    /// Amount of characters into the line the error starts on.
     pub column: usize,
+    /// Line number the error starts on. Starts at 1.
     pub line: usize,
+    /// Reason for error.
     pub reason: DbdErrorReason,
 }
 
@@ -52,24 +55,36 @@ impl Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
+/// Specific reason the parser failed.
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum DbdErrorReason {
+    /// The type and name under `COLUMNS` were not separated by a space.
     NoSpaceInColumn,
 
+    /// The foreign key did not contain a double colon (`::`) in between the delimiters (`<`/`>`).
     NoDoubleColonInForeignKey,
+    /// The foreign key did not include a closing angle bracket (`>`).
     NoClosingForeignKeyAngleBracket,
 
+    /// The annotations did not include a closing dollar sign (`$`).
     NoClosingAnnotationDollarSign,
 
+    /// The integer size did not include a closing angle bracket (`>`).
     NoClosingIntegerSizeAngleBracket,
+    /// The integer size was not a valid integer.
     InvalidIntegerSizeNumber(String),
 
+    /// The array size did not include a closing square bracket (`]`).
     NoClosingArraySizeSquareBracket,
+    /// The array size is not a valid integer.
     InvalidArraySizeNumber(String),
 
+    /// The layout is not a valid hex string.
     InvalidLayout(String),
+    /// The build is not a valid build string (`MAJOR.MINOR.PATCH.BUILD`).
     InvalidBuild(String),
 
+    /// The type name is not valid.
     InvalidType(String),
 }
 
@@ -112,15 +127,22 @@ impl Display for DbdErrorReason {
     }
 }
 
+/// Errors for converting from raw types to proper types.
 #[derive(Debug, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub enum ConversionError {
+    /// The integer width was not either 8, 16, 32 or 64.
     InvalidIntegerWidth(usize),
+    /// An integer did not have an integer width.
     NoIntegerWidth,
 
+    /// The corresponding column was not found for an entry.
     ColumnNotFound(String),
 
+    /// A `locstring` is attempted used as a foreign key.
     LocStringAsForeignKey,
+    /// A `string` is attempted used as a foreign key.
     StringAsForeignKey,
+    /// A `float` is attempted used as a foreign key.
     FloatAsForeignKey,
 }
 

@@ -60,9 +60,11 @@
     clippy::style,
     clippy::missing_const_for_fn,
     clippy::doc_markdown,
-    clippy::unseparated_literal_suffix
+    clippy::unseparated_literal_suffix,
+    missing_docs,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc
 )]
-#![allow(missing_docs, clippy::missing_errors_doc, clippy::missing_panics_doc)]
 
 use crate::error::ParseError;
 use crate::parser::parse_file;
@@ -74,7 +76,9 @@ pub mod error;
 mod parser;
 mod types;
 mod write_to_file;
+
 pub use write_to_file::*;
+
 mod writer;
 
 /// Placeholder name used in [`load_file`] in case the filename is invalid.
@@ -121,6 +125,7 @@ pub fn load_file_from_string(
 #[cfg(test)]
 mod tests {
     use crate::{load_file, load_file_from_string, write_to_file, RawDbdFile, Version};
+
     const MAP_CONTENTS: &str = include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/WoWDBDefs/definitions/Map.dbd"
