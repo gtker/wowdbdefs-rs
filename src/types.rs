@@ -300,11 +300,9 @@ pub struct RawEntry {
     pub unsigned: bool,
     /// True if the column is a primary key in the current table.
     pub primary_key: bool,
-    // TODO: Unknown
-    /// Unknown
+    /// Data is stored inline with the row and not inside [DB2](https://wowdev.wiki/DB2#Structure_8) files.
     pub inline: bool,
-    // TODO: Unknown
-    /// Unknown
+    /// True if the column is a foreign key.
     pub relation: bool,
 }
 
@@ -504,11 +502,9 @@ pub struct Entry {
     pub verified: bool,
     /// Column is a primary key in the table.
     pub primary_key: bool,
-    // TODO: Unknown
-    /// Unknown.
+    /// Data is stored inline with the row and not inside [DB2](https://wowdev.wiki/DB2#Structure_8) files.
     pub inline: bool,
-    // TODO: Unknown
-    /// Unknown.
+    /// True if the column is a foreign key.
     pub relation: bool,
 }
 
