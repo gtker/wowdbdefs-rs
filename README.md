@@ -15,7 +15,7 @@ and then [read the docs](https://docs.rs/wowdbdefs-rs/latest/wowdbdefs-rs/index.
 
 # MSRV
 
-`wow_srp` has a Minimum Supported Rust Version (MSRV) of 1.58.1.
+`wowdbdefs-rs` has a Minimum Supported Rust Version (MSRV) of 1.58.1.
 The MSRV may be increased in `PATCH` versions before `wowdbdefs-rs` reaches `1.0.0` (`MAJOR.MINOR.PATCH`).
 
 ## License
